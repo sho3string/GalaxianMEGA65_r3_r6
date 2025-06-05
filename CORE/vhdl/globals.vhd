@@ -41,7 +41,7 @@ constant QNICE_FIRMWARE           : string  := QNICE_FIRMWARE_M2M;
 ----------------------------------------------------------------------------------------------------------
 
 -- @TODO: Your core's clock speed
-constant CORE_CLK_SPEED       : natural := 54_000_000;   -- @TODO YOURCORE expects 54 MHz
+constant CORE_CLK_SPEED       : natural := 12_000_000;   -- 12Mhz for Galaxian's clock
 
 -- System clock speed (crystal that is driving the FPGA) and QNICE clock speed
 -- !!! Do not touch !!!
@@ -56,8 +56,8 @@ constant QNICE_CLK_SPEED      : natural := 50_000_000;   -- a change here has de
 --    VGA_*   size of the core's target output post scandoubler
 --    If in doubt, use twice the values found in this link:
 --    https://mister-devel.github.io/MkDocs_MiSTer/advanced/nativeres/#arcade-core-default-native-resolutions
-constant VGA_DX               : natural := 720;
-constant VGA_DY               : natural := 576;
+constant VGA_DX               : natural := 514;
+constant VGA_DY               : natural := 448;
 
 --    FONT_*  size of one OSM character
 constant FONT_FILE            : string  := "../font/Anikki-16x16-m2m.rom";
@@ -151,10 +151,32 @@ constant C_CRTROMS_MAN           : crtrom_buf_array := ( x"EEEE", x"EEEE",
 --               b) Don't forget to zero-terminate each of your substrings of C_CRTROMS_AUTO_NAMES by adding "& ENDSTR;"
 --               c) Don't forget to finish the C_CRTROMS_AUTO array with x"EEEE"
 
+constant C_DEV_GAL_CPU_ROM           : std_logic_vector(15 downto 0) := x"0100";     -- GALAXIAN CPU ROM 
+constant C_DEV_GAL_1H_ROM            : std_logic_vector(15 downto 0) := x"0101";     -- GALAXIAN 1H ROM 
+constant C_DEV_GAL_1K_ROM            : std_logic_vector(15 downto 0) := x"0102";     -- GALAXIAN 1k ROM 
+constant C_DEV_GAL_LT_ROM            : std_logic_vector(15 downto 0) := x"0103";     -- GALAXIAN PROM
+
+-- Galaxian specfic roms
+constant ROM_MAIN_CPU_ROM            : string  := "arcade/galaxian/mc_roms" & ENDSTR; 
+constant ROM_H1_ROM                  : string  := "arcade/galaxian/h_roms"  & ENDSTR; 
+constant ROM_K1_ROM                  : string  := "arcade/galaxian/k_roms"  & ENDSTR;
+constant GFX1_BG_ROM                 : string  := "arcade/galaxian/clut"    & ENDSTR;
+
+constant CPU_ROM1_MAIN_START         : std_logic_vector(15 downto 0) := X"0000";
+constant CPU_ROM2_MAIN_START         : std_logic_vector(15 downto 0) := std_logic_vector(to_unsigned(to_integer(unsigned(CPU_ROM1_MAIN_START)) + ROM_MAIN_CPU_ROM'length, 16));
+constant CPU_ROM3_MAIN_START         : std_logic_vector(15 downto 0) := std_logic_vector(to_unsigned(to_integer(unsigned(CPU_ROM2_MAIN_START)) + ROM_H1_ROM'length, 16));
+constant CPU_ROM4_MAIN_START         : std_logic_vector(15 downto 0) := std_logic_vector(to_unsigned(to_integer(unsigned(CPU_ROM3_MAIN_START)) + ROM_K1_ROM'length, 16));
+
 -- M2M framework constants
-constant C_CRTROMS_AUTO_NUM      : natural := 0;                                       -- Amount of automatically loadable ROMs and carts, maximum is 16
-constant C_CRTROMS_AUTO_NAMES    : string  := "" & ENDSTR;
-constant C_CRTROMS_AUTO          : crtrom_buf_array := ( x"EEEE", x"EEEE", x"EEEE", x"EEEE",
+constant C_CRTROMS_AUTO_NUM      : natural := 4; -- Amount of automatically loadable ROMs and carts, if more tha    n 3: also adjust CRTROM_MAN_MAX in M2M/rom/shell_vars.asm, Needs to be in sync with config.vhd. Maximum is 16
+constant C_CRTROMS_AUTO_NAMES    : string  := ROM_MAIN_CPU_ROM & ROM_H1_ROM & ROM_K1_ROM & GFX1_BG_ROM &
+                                              ENDSTR;
+
+constant C_CRTROMS_AUTO          : crtrom_buf_array := ( 
+      C_CRTROMTYPE_DEVICE, C_DEV_GAL_CPU_ROM,   C_CRTROMTYPE_MANDATORY, CPU_ROM1_MAIN_START,
+      C_CRTROMTYPE_DEVICE, C_DEV_GAL_1H_ROM,    C_CRTROMTYPE_MANDATORY, CPU_ROM2_MAIN_START,
+      C_CRTROMTYPE_DEVICE, C_DEV_GAL_1K_ROM,    C_CRTROMTYPE_MANDATORY, CPU_ROM3_MAIN_START,
+      C_CRTROMTYPE_DEVICE, C_DEV_GAL_LT_ROM,    C_CRTROMTYPE_MANDATORY, CPU_ROM4_MAIN_START,
                                                          x"EEEE");                     -- Always finish the array using x"EEEE"
 
 ----------------------------------------------------------------------------------------------------------
