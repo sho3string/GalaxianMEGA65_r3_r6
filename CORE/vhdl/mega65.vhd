@@ -226,10 +226,21 @@ architecture synthesis of MEGA65_Core is
 
 signal main_clk               : std_logic;               -- Core main clock
 signal main_rst               : std_logic;
+signal video_clk              : std_logic;  
+signal video_rst              : std_logic;
 
 ---------------------------------------------------------------------------------------------
 -- main_clk (MiSTer core's clock)
 ---------------------------------------------------------------------------------------------
+
+signal main_video_red      : std_logic_vector(2 downto 0);   
+signal main_video_green    : std_logic_vector(2 downto 0);
+signal main_video_blue     : std_logic_vector(2 downto 0);
+signal main_video_vs       : std_logic;
+signal main_video_hs       : std_logic;
+signal main_video_hblank   : std_logic;
+signal main_video_vblank   : std_logic;
+signal main_qnice_dev_id_i : std_logic_vector(15 downto 0);
 
 ---------------------------------------------------------------------------------------------
 -- qnice_clk
@@ -240,6 +251,8 @@ signal main_rst               : std_logic;
 ---------------------------------------------------------------------------------------------
 
 -- Democore menu items
+constant C_FLIP_JOYS           : natural := 2;
+constant C_MENU_ROT90          : natural := 6;
 constant C_MENU_HDMI_16_9_50   : natural := 12;
 constant C_MENU_HDMI_16_9_60   : natural := 13;
 constant C_MENU_HDMI_4_3_50    : natural := 14;
@@ -250,11 +263,69 @@ constant C_MENU_SVGA_800_60    : natural := 18;
 constant C_MENU_CRT_EMULATION  : natural := 30;
 constant C_MENU_HDMI_ZOOM      : natural := 31;
 constant C_MENU_IMPROVE_AUDIO  : natural := 32;
+constant C_MENU_VGA_STD        : natural := 35;
+constant C_MENU_VGA_15KHZHSVS  : natural := 36;
+constant C_MENU_VGA_15KHZCS    : natural := 37;
 
--- QNICE clock domain
-signal qnice_demo_vd_data_o   : std_logic_vector(15 downto 0);
-signal qnice_demo_vd_ce       : std_logic;
-signal qnice_demo_vd_we       : std_logic;
+signal dsw_a_i      : std_logic_vector(7 downto 0);
+signal dsw_b_i      : std_logic_vector(7 downto 0);
+signal dsw_c_i      : std_logic_vector(7 downto 0);
+
+signal video_red    : std_logic_vector(7 downto 0);
+signal video_green  : std_logic_vector(7 downto 0);
+signal video_blue   : std_logic_vector(7 downto 0);
+signal video_vs     : std_logic;
+signal video_hs     : std_logic;
+signal video_vblank : std_logic;
+signal video_hblank : std_logic;
+signal video_de     : std_logic;
+
+signal video_rot_red    : std_logic_vector(7 downto 0);
+signal video_rot_green  : std_logic_vector(7 downto 0);
+signal video_rot_blue   : std_logic_vector(7 downto 0);
+signal video_rot_vs     : std_logic;
+signal video_rot_hs     : std_logic;
+signal video_rot_vblank : std_logic;
+signal video_rot_hblank : std_logic;
+signal video_rot_de     : std_logic;
+
+signal video_rot90_flag : std_logic;
+
+-- Output from screen_rotate
+signal ddram_addr       : std_logic_vector(28 downto 0);
+signal ddram_data       : std_logic_vector(63 downto 0);
+signal ddram_be         : std_logic_vector( 7 downto 0);
+signal ddram_we         : std_logic;
+
+-- ROM devices
+signal qnice_dn_addr    : std_logic_vector(15 downto 0);
+signal qnice_dn_data    : std_logic_vector(7 downto 0);
+signal qnice_dn_wr      : std_logic;
+
+signal div              : std_logic_vector(2 downto 0);
+signal dim_video        : std_logic;
+signal ce_pix           : std_logic;
+
+
+
+-- 320x288 @ 50 Hz
+constant C_320_288_50 : video_modes_t := (
+   CLK_KHZ     => 6000,       -- 6 MHz
+   CLK_SEL     => "001",
+   CEA_CTA_VIC => 0,
+   ASPECT      => "01",       -- aspect ratio: 01=4:3, 10=16:9: "01" for SVGA
+   PIXEL_REP   => '0',        -- no pixel repetition
+   H_PIXELS    => 320,        -- horizontal display width in pixels
+   V_PIXELS    => 257,        -- vertical display width in rows
+   H_PULSE     => 28,         -- horizontal sync pulse width in pixels
+   H_BP        => 28,         -- horizontal back porch width in pixels
+   H_FP        => 8,          -- horizontal front porch width in pixels
+   V_PULSE     => 2,          -- vertical sync pulse width in rows
+   V_BP        => 22,         -- vertical back porch width in rows
+   V_FP        => 1,          -- vertical front porch width in rows
+   H_POL       => '1',        -- horizontal sync pulse polarity (1 = positive, 0 = negative)
+   V_POL       => '1'         -- vertical sync pulse polarity (1 = positive, 0 = negative)
+);
 
 begin
 
@@ -316,14 +387,28 @@ begin
    clk_gen : entity work.clk
       port map (
          sys_clk_i         => clk_i,           -- expects 100 MHz
-         main_clk_o        => main_clk,        -- CORE's 54 MHz clock
-         main_rst_o        => main_rst         -- CORE's reset, synchronized
+         main_clk_o        => main_clk,        -- CORE's 12 MHz clock
+         main_rst_o        => main_rst,        -- CORE's reset, synchronized
+         
+         video_clk_o       => video_clk,       -- CORE's 48 MHz clock
+         video_rst_o       => video_rst        -- CORE's reset, synchronized
       ); -- clk_gen
+      
+     i_cdc_qnice2video : xpm_cdc_array_single
+      generic map (
+         WIDTH => 1
+      )
+      port map (
+         src_clk           => qnice_clk_i,
+         src_in(0)         => qnice_osm_control_i(1),--qnice_osm_control_i(C_MENU_ROT90),
+         dest_clk          => video_clk,
+         dest_out(0)       => video_rot90_flag
+      ); -- i_cdc_qnice2video
 
    main_clk_o  <= main_clk;
    main_rst_o  <= main_rst;
-   video_clk_o <= main_clk;
-   video_rst_o <= main_rst;
+   video_clk_o <= video_clk;
+   video_rst_o <= video_rst;
 
    ---------------------------------------------------------------------------------------------
    -- main_clk (MiSTer core's clock)
@@ -344,20 +429,19 @@ begin
          reset_soft_i         => main_reset_core_i,
          reset_hard_i         => main_reset_m2m_i,
          pause_i              => main_pause_core_i,
-
          clk_main_speed_i     => CORE_CLK_SPEED,
 
          -- Video output
          -- This is PAL 720x576 @ 50 Hz (pixel clock 27 MHz), but synchronized to main_clk (54 MHz).
-         video_ce_o           => video_ce_o,
-         video_ce_ovl_o       => video_ce_ovl_o,
-         video_red_o          => video_red_o,
-         video_green_o        => video_green_o,
-         video_blue_o         => video_blue_o,
-         video_vs_o           => video_vs_o,
-         video_hs_o           => video_hs_o,
-         video_hblank_o       => video_hblank_o,
-         video_vblank_o       => video_vblank_o,
+         video_ce_o           => open,
+         video_ce_ovl_o       => open,
+         video_red_o          => main_video_red,
+         video_green_o        => main_video_green,
+         video_blue_o         => main_video_blue,
+         video_vs_o           => main_video_vs,
+         video_hs_o           => main_video_hs,
+         video_hblank_o       => main_video_hblank,
+         video_vblank_o       => main_video_vblank,
 
          -- audio output (pcm format, signed values)
          audio_left_o         => main_audio_left_o,
@@ -383,8 +467,135 @@ begin
          pot1_x_i             => main_pot1_x_i,
          pot1_y_i             => main_pot1_y_i,
          pot2_x_i             => main_pot2_x_i,
-         pot2_y_i             => main_pot2_y_i
+         pot2_y_i             => main_pot2_y_i,
+         
+         dn_clk_i             => qnice_clk_i,
+         dn_addr_i            => qnice_dn_addr,
+         dn_data_i            => qnice_dn_data,
+         dn_wr_i              => qnice_dn_wr,
+         
+         osm_control_i        => main_osm_control_i,
+         dsw_a_i              => dsw_a_i,
+         dsw_b_i              => dsw_b_i,
+         dsw_c_i              => dsw_c_i
+         
       ); -- i_main
+      
+      
+    process (video_clk)
+    begin
+        if rising_edge(video_clk) then
+        
+            ce_pix <= '0';
+            video_ce_ovl_o <= '0';
+            
+            div <= std_logic_vector(unsigned(div) + 1);
+            ce_pix <= '1' when div = "000" else '0';
+            
+            /*if div = "000" then
+                ce_pix <= '1'; -- Pulse every 8 cycles (6 MHz)
+            end if;*/
+            
+            if div(0) = '1' then
+               video_ce_ovl_o <= '1'; -- 24 MHz
+            end if;
+            
+            if dim_video = '1' then
+                video_red   <= main_video_red   & main_video_red & "00";
+                video_green <= main_video_green & main_video_green & "00";
+                video_blue  <= main_video_blue  & main_video_blue & "00";
+            else
+                video_red   <= main_video_red   & main_video_red & main_video_red(2 downto 1);
+                video_green <= main_video_green & main_video_green & main_video_green(2 downto 1);
+                video_blue  <= main_video_blue  & main_video_blue & main_video_blue(2 downto 1);
+            end if;
+
+            video_hs     <= not main_video_hs;
+            video_vs     <= not main_video_vs;
+            video_hblank <= main_video_hblank;
+            video_vblank <= main_video_vblank;
+            video_de     <= not (main_video_hblank or main_video_vblank);
+            
+        end if;
+    end process;
+    
+    p_select_video_signals : process(video_rot90_flag)
+    begin
+        if video_rot90_flag then
+           video_red_o      <= video_rot_red;
+           video_green_o    <= video_rot_green;
+           video_blue_o     <= video_rot_blue;
+           video_vs_o       <= video_rot_vs;
+           video_hs_o       <= video_rot_hs;
+           video_hblank_o   <= video_rot_hblank;
+           video_vblank_o   <= video_rot_vblank;
+           video_ce_o       <= ce_pix;
+       else
+           video_red_o      <= video_red;
+           video_green_o    <= video_green;
+           video_blue_o     <= video_blue;
+           video_vs_o       <= video_vs;
+           video_hs_o       <= video_hs;
+           video_hblank_o   <= video_hblank;
+           video_vblank_o   <= video_vblank;
+           video_ce_o       <= ce_pix;       
+       end if;
+    end process;
+    
+    i_screen_rotate : entity work.screen_rotate
+       port map (
+          --inputs
+          CLK_VIDEO      => video_clk,
+          CE_PIXEL       => ce_pix,
+          VGA_R          => video_red,
+          VGA_G          => video_green,
+          VGA_B          => video_blue,
+          VGA_HS         => video_hs,
+          VGA_VS         => video_vs,
+          VGA_DE         => video_de,
+          rotate_ccw     => '0',
+          no_rotate      => '0',
+          flip           => '0',
+          FB_VBL         => '0',
+          FB_LL          => '0',
+          -- output to screen_buffer
+          video_rotated  => open,
+          DDRAM_CLK      => video_clk,
+          DDRAM_BUSY     => '0',
+          DDRAM_BURSTCNT => open,
+          DDRAM_ADDR     => ddram_addr,
+          DDRAM_DIN      => ddram_data,
+          DDRAM_BE       => ddram_be,
+          DDRAM_WE       => ddram_we,
+          DDRAM_RD       => open
+      ); -- i_screen_rotate
+      
+         -- Here G_ADDR_WIDTH is determined by the total number of visible pixels,
+   -- since each word in memory stores one pixel.
+   -- Here we have 288*224 = 64512, i.e. 16 bits of address is enough.
+   i_frame_buffer : entity work.frame_buffer
+      generic map (
+         G_ADDR_WIDTH => 16,
+         G_H_LEFT     => 48,
+         G_H_RIGHT    => 224+48,    -- ( 320- 24 ) / 2 = 48
+         G_VIDEO_MODE => C_320_288_50
+      )
+      
+      port map (
+         ddram_clk_i      => video_clk,
+         ddram_addr_i     => ddram_addr(14 downto 0) & ddram_be(7),
+         ddram_din_i      => ddram_data(31 downto 0),
+         ddram_we_i       => ddram_we,
+         video_clk_i      => video_clk,
+         video_ce_i       => ce_pix,
+         video_red_o      => video_rot_red,
+         video_green_o    => video_rot_green,
+         video_blue_o     => video_rot_blue,
+         video_vs_o       => video_rot_vs,
+         video_hs_o       => video_rot_hs,
+         video_hblank_o   => video_rot_hblank,
+         video_vblank_o   => video_rot_vblank
+      ); -- i_frame_buffer
 
    ---------------------------------------------------------------------------------------------
    -- Audio and video settings (QNICE clock domain)
@@ -397,10 +608,7 @@ begin
    -- while in the 4:3 mode we are outputting a 5:4 image. This is kind of odd, but it seemed that our 4/3 aspect ratio
    -- adjusted image looks best on a 5:4 monitor and the other way round.
    -- Not sure if this will stay forever or if we will come up with a better naming convention.
-   qnice_video_mode_o <= C_VIDEO_SVGA_800_60   when qnice_osm_control_i(C_MENU_SVGA_800_60)    = '1' else
-                         C_VIDEO_HDMI_720_5994 when qnice_osm_control_i(C_MENU_HDMI_720_5994)  = '1' else
-                         C_VIDEO_HDMI_640_60   when qnice_osm_control_i(C_MENU_HDMI_640_60)    = '1' else
-                         C_VIDEO_HDMI_5_4_50   when qnice_osm_control_i(C_MENU_HDMI_5_4_50)    = '1' else
+   qnice_video_mode_o <= C_VIDEO_HDMI_5_4_50   when qnice_osm_control_i(C_MENU_HDMI_5_4_50)    = '1' else
                          C_VIDEO_HDMI_4_3_50   when qnice_osm_control_i(C_MENU_HDMI_4_3_50)    = '1' else
                          C_VIDEO_HDMI_16_9_60  when qnice_osm_control_i(C_MENU_HDMI_16_9_60)   = '1' else
                          C_VIDEO_HDMI_16_9_50;
@@ -419,8 +627,10 @@ begin
    --    "Standard VGA":                     qnice_retro15kHz_o=0 and qnice_csync_o=0
    --    "Retro 15 kHz with HSync and VSync" qnice_retro15kHz_o=1 and qnice_csync_o=0
    --    "Retro 15 kHz with CSync"           qnice_retro15kHz_o=1 and qnice_csync_o=1
-   qnice_retro15kHz_o         <= '0';
-   qnice_csync_o              <= '0';
+   qnice_scandoubler_o        <= (not qnice_osm_control_i(C_MENU_VGA_15KHZHSVS)) and
+                                 (not qnice_osm_control_i(C_MENU_VGA_15KHZCS));   
+   qnice_retro15kHz_o <= qnice_osm_control_i(C_MENU_VGA_15KHZHSVS) or qnice_osm_control_i(C_MENU_VGA_15KHZCS);
+   qnice_csync_o      <= qnice_osm_control_i(C_MENU_VGA_15KHZCS);
    qnice_osm_cfg_scaling_o    <= (others => '1');
 
    -- ascal filters that are applied while processing the input
@@ -439,7 +649,7 @@ begin
    qnice_ascal_triplebuf_o    <= '0';
 
    -- Flip joystick ports (i.e. the joystick in port 2 is used as joystick 1 and vice versa)
-   qnice_flip_joyports_o      <= '0';
+   qnice_flip_joyports_o      <= qnice_osm_control_i(C_FLIP_JOYS);
 
    ---------------------------------------------------------------------------------------------
    -- Core specific device handling (QNICE clock domain)
@@ -451,21 +661,34 @@ begin
       qnice_dev_data_o     <= x"EEEE";
       qnice_dev_wait_o     <= '0';
 
-      -- Demo core specific: Delete before starting to port your core
-      qnice_demo_vd_ce     <= '0';
-      qnice_demo_vd_we     <= '0';
-
+  
       case qnice_dev_id_i is
 
-         -- Demo core specific stuff: delete before porting your own core
-         when C_DEV_DEMO_VD =>
-            qnice_demo_vd_ce     <= qnice_dev_ce_i;
-            qnice_demo_vd_we     <= qnice_dev_we_i;
-            qnice_dev_data_o     <= qnice_demo_vd_data_o;
-
-         -- @TODO YOUR RAMs or ROMs (e.g. for cartridges) or other devices here
-         -- Device numbers need to be >= 0x0100
-
+               -- rom_cs <= '1' when dn_addr(15) = '0' else '0';
+            when C_DEV_GAL_CPU_ROM  =>
+                  qnice_dn_wr   <= qnice_dev_ce_i and qnice_dev_we_i;
+                  qnice_dn_addr(15 downto 0) <= "0" & qnice_dev_addr_i(14 downto 0);
+                  qnice_dn_data <= qnice_dev_data_i(7 downto 0);
+                  
+               -- gfx1_cs  <= '1' when dn_addr(15 downto 12) = X"4" and mod_porter='0' else '1' when dn_addr(15 downto 12) = X"5" and mod_porter='1' else '0';
+            when C_DEV_GAL_1H_ROM  =>
+                  qnice_dn_wr   <= qnice_dev_ce_i and qnice_dev_we_i;
+                  qnice_dn_addr(15 downto 0) <= "0100" & qnice_dev_addr_i(11 downto 0);
+                  qnice_dn_data <= qnice_dev_data_i(7 downto 0);
+                                   
+               -- gfx2_cs  <= '1' when dn_addr(15 downto 12) = X"5" and mod_porter='0' else '1' when dn_addr(15 downto 12) = X"6" and mod_porter='1' else '0';    
+            when C_DEV_GAL_1K_ROM  =>
+                  qnice_dn_wr   <= qnice_dev_ce_i and qnice_dev_we_i;
+                  qnice_dn_addr(15 downto 0) <= "0101" & qnice_dev_addr_i(11 downto 0);
+                  qnice_dn_data <= qnice_dev_data_i(7 downto 0);
+                  
+                -- clut_cs  <= '1' when dn_addr(15 downto 5) = "01100000000" and mod_porter='0' else '1' when dn_addr(15 downto 5) = "01110000000" and mod_porter='1' else '0';  -- 6000-601F only
+  
+            when C_DEV_GAL_LT_ROM  =>
+                  qnice_dn_wr   <= qnice_dev_ce_i and qnice_dev_we_i;
+                  qnice_dn_addr(15 downto 0) <= "01100000000" & qnice_dev_addr_i(4 downto 0);
+                  qnice_dn_data <= qnice_dev_data_i(7 downto 0);
+                        
          when others => null;
       end case;
    end process core_specific_devices;
@@ -496,52 +719,6 @@ begin
    --    the cache is dirty (i.e. as long as the write process is not finished, yet)
    main_drive_led_o     <= '0';
    main_drive_led_col_o <= x"00FF00";  -- 24-bit RGB value for the led
-
-   i_vdrives : entity work.vdrives
-      generic map (
-         VDNUM       => C_VDNUM
-      )
-      port map
-      (
-         clk_qnice_i       => qnice_clk_i,
-         clk_core_i        => main_clk,
-         reset_core_i      => main_reset_core_i,
-
-         -- Core clock domain
-         img_mounted_o     => open,
-         img_readonly_o    => open,
-         img_size_o        => open,
-         img_type_o        => open,
-         drive_mounted_o   => open,
-
-         -- Cache output signals: The dirty flags can be used to enforce data consistency
-         -- (for example by ignoring/delaying a reset or delaying a drive unmount/mount, etc.)
-         -- The flushing flags can be used to signal the fact that the caches are currently
-         -- flushing to the user, for example using a special color/signal for example
-         -- at the drive led
-         cache_dirty_o     => open,
-         cache_flushing_o  => open,
-
-         -- QNICE clock domain
-         sd_lba_i          => (others => (others => '0')),
-         sd_blk_cnt_i      => (others => (others => '0')),
-         sd_rd_i           => (others => '0'),
-         sd_wr_i           => (others => '0'),
-         sd_ack_o          => open,
-
-         sd_buff_addr_o    => open,
-         sd_buff_dout_o    => open,
-         sd_buff_din_i     => (others => (others => '0')),
-         sd_buff_wr_o      => open,
-
-         -- QNICE interface (MMIO, 4k-segmented)
-         -- qnice_addr is 28-bit because we have a 16-bit window selector and a 4k window: 65536*4096 = 268.435.456 = 2^28
-         qnice_addr_i      => qnice_dev_addr_i,
-         qnice_data_i      => qnice_dev_data_i,
-         qnice_data_o      => qnice_demo_vd_data_o,
-         qnice_ce_i        => qnice_demo_vd_ce,
-         qnice_we_i        => qnice_demo_vd_we
-      ); -- i_vdrives
 
 end architecture synthesis;
 
