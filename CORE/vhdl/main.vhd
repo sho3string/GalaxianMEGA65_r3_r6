@@ -13,6 +13,7 @@ use ieee.numeric_std.all;
 library work;
 use work.video_modes_pkg.all;
 
+
 entity main is
    generic (
       G_VDNUM                 : natural                     -- amount of virtual drives
@@ -65,8 +66,6 @@ entity main is
       pot2_x_i                : in  std_logic_vector(7 downto 0);
       pot2_y_i                : in  std_logic_vector(7 downto 0);
       
-      dsw_a_i                 : in  std_logic_vector(7 downto 0);              
-      dsw_b_i                 : in  std_logic_vector(7 downto 0);
       dsw_c_i                 : in  std_logic_vector(7 downto 0);
       
       dn_clk_i                : in  std_logic;
@@ -81,19 +80,31 @@ end entity main;
 
 architecture synthesis of main is
 
+-- Game player inputs
+constant m65_1           : integer := 56; --Player 1 Start
+constant m65_2           : integer := 59; --Player 2 Start
+constant m65_5           : integer := 16; --Insert coin 1
+constant m65_6           : integer := 19; --Insert coin 2
+constant m65_s           : integer := 13; --Service 1
+constant m65_a           : integer := 10; --Player left
+constant m65_d           : integer := 18; --Player right
+constant m65_up_crsr     : integer := 73; --Player fire
+constant m65_p           : integer := 41; --Pause button
+
+-- change these values based on menu
+constant C_MENU_OSMPAUSE : natural := 2;
+constant C_MENU_OSMDIM   : natural := 3;
+constant C_MENU_FLIP     : natural := 9;
+
 -- @TODO: Remove these demo core signals
 signal keyboard_n                : std_logic_vector(79 downto 0);
 signal reset                     : std_logic := reset_hard_i or reset_soft_i;
 signal clk_6m                    : std_logic;
-
-signal sw                        : std_logic_vector(7 downto 0);
-signal sw0                       : std_logic_vector(7 downto 0);
-signal sw1                       : std_logic_vector(7 downto 0);
-
 signal audio                     : std_logic_vector(10 downto 0);
 signal audio_a, audio_b, audio_c : std_logic_vector(7 downto 0);
-signal audio_signed              : signed(10 downto 0);
-signal audio_padded              : signed(15 downto 0);
+signal audio_shifted             : unsigned(15 downto 0);
+signal audio_signed              : signed(15 downto 0);
+
 signal flip_screen               : std_logic;
 signal pause_cpu                 : std_logic := '0';
 
@@ -105,35 +116,49 @@ signal hs_write_enable  : std_logic;
 signal hs_pause         : std_logic;
 signal options          : std_logic_vector(1 downto 0);
 signal hd_configured    : std_logic;
-signal m_test           : std_logic;
 
--- Game player inputs
-constant m65_1           : integer := 56; --Player 1 Start
-constant m65_2           : integer := 59; --Player 2 Start
-constant m65_5           : integer := 16; --Insert coin 1
-constant m65_6           : integer := 19; --Insert coin 2
+signal m_start1         : std_logic := not keyboard_n(m65_1);
+signal m_start2         : std_logic := not keyboard_n(m65_2);
+signal m_test           : std_logic := not keyboard_n(m65_s);
+signal m_fire           : std_logic := not joy_1_fire_n_i; --or not keyboard_n(m65_up_crsr);
+signal m_right          : std_logic := not joy_1_right_n_i; --or not keyboard_n(m65_d);
+signal m_left           : std_logic := not joy_1_left_n_i; --or not keyboard_n(m65_a);
+signal m_coin           : std_logic := not keyboard_n(m65_5);
+signal m_fire_2         : std_logic := not joy_2_fire_n_i;-- or not keyboard_n(m65_up_crsr);
+signal m_right_2        : std_logic := not joy_2_right_n_i;-- or not keyboard_n(m65_d);
+signal m_left_2         : std_logic := not joy_2_left_n_i;-- or not keyboard_n(m65_a);
+signal m_coin_2         : std_logic := not keyboard_n(m65_6);
+signal sw0              : std_logic_vector(7 downto 0);
+signal sw1              : std_logic_vector(7 downto 0);
 
--- Offer some keyboard controls in addition to Joy 1 Controls
-constant m65_a             : integer := 10; --Player left
-constant m65_d             : integer := 18; --Player right
-constant m65_up_crsr       : integer := 73; --Player fire
 
+--signal sw0              : std_logic_vector(7 downto 0);
+--signal sw1              : std_logic_vector(7 downto 0);
 
-
--- change these values based on menu
-constant C_MENU_OSMPAUSE     : natural := 2;
-constant C_MENU_OSMDIM       : natural := 3;
-constant C_MENU_FLIP         : natural := 9;
-
--- Pause, credit button & test mode
-constant m65_p               : integer := 41; --Pause button
+signal sw0_galaxian     : std_logic_vector(7 downto 0);-- := sw0 and ( m_test & '1' & '1' & m_fire & m_right & m_left & ('0' and m_coin) & '1' and m_coin);
+signal sw1_galaxian     : std_logic_vector(7 downto 0);-- := sw1 and ( "111" & m_fire_2 & m_right_2 & m_left_2 & m_start2 & m_start1);
 
 begin
 
-   --sw  <= m_test & '1' & '1' & m_fire & m_right & m_left & '0' & m_coin;
-   sw0 <= "00000001"; -- Galaxian
-   sw1 <= "00000001"; -- Galaxian
+   --sw0 <= m_test & "11" & m_fire & m_right & m_left & '0' and m_coin;
+   --sw1 <= "111" & m_fire_2 & m_right_2 & m_left_2 & m_start2 & m_start1;
+   process (clk_main_i)
+    begin
+        if rising_edge(clk_main_i) then
+            if reset = '0' then -- sample and read inputs/dips during active low reset state
+                sw0 <= m_test & dsw_c_i(6) & dsw_c_i(5) & m_fire & m_right & m_left & ('0' and m_coin) & ('1' and m_coin);
+                -- (6) test mode, (5) cabinet
+                sw1 <= dsw_c_i(3) & dsw_c_i(4) & dsw_c_i(7) & m_fire_2 & m_right_2 & m_left_2 & m_start2 & m_start1;
+                -- (3),(4) Coinage, (7) Unused
+            end if;
+        end if;
+    end process;
    
+    -- Bitmask logic (assuming mod_pisces = '0')
+    sw0_galaxian <= sw0 and (m_test & dsw_c_i(6) & dsw_c_i(5) & m_fire & m_right & m_left & ('0' and m_coin) & ('1' and m_coin));
+    sw1_galaxian <= sw1 and (dsw_c_i(3) & dsw_c_i(4) & dsw_c_i(7) & m_fire_2 & m_right_2 & m_left_2 & m_start2 & m_start1);
+     
+   -- Mix unsigned audio
    audio <= (others => '0') when pause_cpu = '1' else
          std_logic_vector(
            unsigned('0' & audio_b & "00") + 
@@ -141,15 +166,10 @@ begin
            unsigned("00" & audio_c & '0')
          );
          
-   --audio_left_o(10) <= not audio(10);
-   --audio_left_o(9 downto 0) <= signed(audio(9 downto 0));
-   --audio_right_o(10) <= not audio(10);
-   --audio_right_o(9 downto 0) <= signed(audio(9 downto 0));
-  
-   audio_signed <= signed(unsigned(audio) - 1024);
-   audio_padded <= resize(audio_signed, 16);  -- sign-extend to 16 bits
-   audio_left_o  <= audio_padded;
-   audio_right_o <= audio_padded;
+   audio_shifted <= shift_left(resize(unsigned(audio), 16), 5); 
+   audio_signed <= signed(audio_shifted) - to_signed(16384, 16);
+   audio_left_o  <= audio_signed;
+   audio_right_o <= audio_signed;
     
    options(0) <= osm_control_i(C_MENU_OSMPAUSE);
    options(1) <= osm_control_i(C_MENU_OSMDIM);
@@ -158,7 +178,7 @@ begin
    process (clk_main_i) -- 12mhz / 2
    begin
       if rising_edge(clk_main_i) then
-        clk_6m <= not clk_6m; 
+        clk_6m <= not clk_6m;
       end if;
    end process;
 
@@ -169,7 +189,7 @@ begin
         i_reset        => reset,
         w_sw0_di       => sw0,
         w_sw1_di       => sw1,
-        w_dip_di       => sw,
+        w_dip_di       => "00000" & dsw_c_i(2) & dsw_c_i(1) & dsw_c_i(0),
         w_r            => video_red_o,
         w_g            => video_green_o,
 	    w_b            => video_blue_o,
@@ -216,13 +236,11 @@ begin
          user_button    => keyboard_n(m65_p),
          pause_request  => hs_pause,
          options        => options,  -- not status(11 downto 10), - TODO, hookup to OSD.
-         OSD_STATUS     => '0',       -- disabled for now - TODO, to OSD
+         OSD_STATUS     => '0',      -- disabled for now - TODO, to OSD
          r              => video_red_o,
          g              => video_green_o,
          b              => video_blue_o,
-         pause_cpu      => pause_cpu
-         --rgb_out        TODO
-         
+         pause_cpu      => pause_cpu       
       );
       
       

@@ -251,26 +251,29 @@ signal main_qnice_dev_id_i : std_logic_vector(15 downto 0);
 ---------------------------------------------------------------------------------------------
 
 -- Democore menu items
-constant C_FLIP_JOYS           : natural := 2;
-constant C_MENU_ROT90          : natural := 6;
-constant C_MENU_HDMI_16_9_50   : natural := 12;
-constant C_MENU_HDMI_16_9_60   : natural := 13;
-constant C_MENU_HDMI_4_3_50    : natural := 14;
-constant C_MENU_HDMI_5_4_50    : natural := 15;
-constant C_MENU_HDMI_640_60    : natural := 16;
-constant C_MENU_HDMI_720_5994  : natural := 17;
-constant C_MENU_SVGA_800_60    : natural := 18;
-constant C_MENU_CRT_EMULATION  : natural := 30;
-constant C_MENU_HDMI_ZOOM      : natural := 31;
-constant C_MENU_IMPROVE_AUDIO  : natural := 32;
-constant C_MENU_VGA_STD        : natural := 35;
-constant C_MENU_VGA_15KHZHSVS  : natural := 36;
-constant C_MENU_VGA_15KHZCS    : natural := 37;
+constant C_FLIP_JOYS           : natural := 4;
+constant C_MENU_ROT90          : natural := 8;
+constant C_MENU_FLIP           : natural := 9;
+constant C_MENU_CRT_EMULATION  : natural := 10;
+constant C_MENU_HDMI_16_9_50   : natural := 13;
+constant C_MENU_HDMI_16_9_60   : natural := 14;
+constant C_MENU_HDMI_4_3_50    : natural := 15;
+constant C_MENU_HDMI_5_4_50    : natural := 16;
+constant C_MENU_VGA_STD        : natural := 23;
+constant C_MENU_VGA_15KHZHSVS  : natural := 27;
+constant C_MENU_VGA_15KHZCS    : natural := 28;
+constant C_MENU_NAMCO_DSWA_0   : natural := 35;
+constant C_MENU_NAMCO_DSWA_1   : natural := 36;
+constant C_MENU_NAMCO_DSWA_2   : natural := 37;
+constant C_MENU_NAMCO_DSWA_3   : natural := 38;
+constant C_MENU_NAMCO_DSWA_4   : natural := 39;
+constant C_MENU_NAMCO_DSWA_5   : natural := 40;
+constant C_MENU_NAMCO_DSWA_6   : natural := 41;
+constant C_MENU_NAMCO_DSWA_7   : natural := 42;
+constant C_MENU_IMPROVE_AUDIO  : natural := 46;
 
-signal dsw_a_i      : std_logic_vector(7 downto 0);
-signal dsw_b_i      : std_logic_vector(7 downto 0);
+
 signal dsw_c_i      : std_logic_vector(7 downto 0);
-
 signal video_red    : std_logic_vector(7 downto 0);
 signal video_green  : std_logic_vector(7 downto 0);
 signal video_blue   : std_logic_vector(7 downto 0);
@@ -305,8 +308,6 @@ signal qnice_dn_wr      : std_logic;
 signal div              : std_logic_vector(2 downto 0);
 signal dim_video        : std_logic;
 signal ce_pix           : std_logic;
-
-
 
 -- 320x288 @ 50 Hz
 constant C_320_288_50 : video_modes_t := (
@@ -400,7 +401,7 @@ begin
       )
       port map (
          src_clk           => qnice_clk_i,
-         src_in(0)         => qnice_osm_control_i(1),--qnice_osm_control_i(C_MENU_ROT90),
+         src_in(0)         => qnice_osm_control_i(C_MENU_ROT90),
          dest_clk          => video_clk,
          dest_out(0)       => video_rot90_flag
       ); -- i_cdc_qnice2video
@@ -409,6 +410,15 @@ begin
    main_rst_o  <= main_rst;
    video_clk_o <= video_clk;
    video_rst_o <= video_rst;
+   
+   dsw_c_i <= main_osm_control_i(C_MENU_NAMCO_DSWA_7) &
+              main_osm_control_i(C_MENU_NAMCO_DSWA_6) &
+              main_osm_control_i(C_MENU_NAMCO_DSWA_5) &
+              main_osm_control_i(C_MENU_NAMCO_DSWA_4) &
+              main_osm_control_i(C_MENU_NAMCO_DSWA_3) &
+              main_osm_control_i(C_MENU_NAMCO_DSWA_2) &
+              main_osm_control_i(C_MENU_NAMCO_DSWA_1) &
+              main_osm_control_i(C_MENU_NAMCO_DSWA_0);   
 
    ---------------------------------------------------------------------------------------------
    -- main_clk (MiSTer core's clock)
@@ -475,8 +485,6 @@ begin
          dn_wr_i              => qnice_dn_wr,
          
          osm_control_i        => main_osm_control_i,
-         dsw_a_i              => dsw_a_i,
-         dsw_b_i              => dsw_b_i,
          dsw_c_i              => dsw_c_i
          
       ); -- i_main
@@ -491,10 +499,6 @@ begin
             
             div <= std_logic_vector(unsigned(div) + 1);
             ce_pix <= '1' when div = "000" else '0';
-            
-            /*if div = "000" then
-                ce_pix <= '1'; -- Pulse every 8 cycles (6 MHz)
-            end if;*/
             
             if div(0) = '1' then
                video_ce_ovl_o <= '1'; -- 24 MHz
@@ -616,10 +620,11 @@ begin
    -- Use On-Screen-Menu selections to configure several audio and video settings
    -- Video and audio mode control
    qnice_dvi_o                <= '0';                                         -- 0=HDMI (with sound), 1=DVI (no sound)
-   qnice_scandoubler_o        <= '0';                                         -- no scandoubler
+   qnice_scandoubler_o        <= (not qnice_osm_control_i(C_MENU_VGA_15KHZHSVS)) and
+                                 (not qnice_osm_control_i(C_MENU_VGA_15KHZCS));   
    qnice_audio_mute_o         <= '0';                                         -- audio is not muted
    qnice_audio_filter_o       <= qnice_osm_control_i(C_MENU_IMPROVE_AUDIO);   -- 0 = raw audio, 1 = use filters from globals.vhd
-   qnice_zoom_crop_o          <= qnice_osm_control_i(C_MENU_HDMI_ZOOM);       -- 0 = no zoom/crop
+   qnice_zoom_crop_o          <= '0';                                         -- 0 = no zoom/crop
    
    -- These two signals are often used as a pair (i.e. both '1'), particularly when
    -- you want to run old analog cathode ray tube monitors or TVs (via SCART)
@@ -682,8 +687,7 @@ begin
                   qnice_dn_addr(15 downto 0) <= "0101" & qnice_dev_addr_i(11 downto 0);
                   qnice_dn_data <= qnice_dev_data_i(7 downto 0);
                   
-                -- clut_cs  <= '1' when dn_addr(15 downto 5) = "01100000000" and mod_porter='0' else '1' when dn_addr(15 downto 5) = "01110000000" and mod_porter='1' else '0';  -- 6000-601F only
-  
+               -- clut_cs  <= '1' when dn_addr(15 downto 5) = "01100000000" and mod_porter='0' else '1' when dn_addr(15 downto 5) = "01110000000" and mod_porter='1' else '0';  -- 6000-601F only
             when C_DEV_GAL_LT_ROM  =>
                   qnice_dn_wr   <= qnice_dev_ce_i and qnice_dev_we_i;
                   qnice_dn_addr(15 downto 0) <= "01100000000" & qnice_dev_addr_i(4 downto 0);
