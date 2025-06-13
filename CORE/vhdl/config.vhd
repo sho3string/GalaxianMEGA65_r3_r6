@@ -85,10 +85,10 @@ constant SCR_WELCOME : string :=
    "MiSTer2MEGA65 Ver 2.01\n"           &
    "By sy2002 & MJoergen 2025\n"        &
    "\n\n"                               &
-   "Credits: Press '5' or '6'\n"        & 
+   "Credits: Press '5'\n"               & 
    "Start  : Press '1' or '2'\n"        &
-   "Pause  : Press 'p'\n"               &
    "Svc 1  : Press 's' \n"              &
+   "Joy or a,d, up_arrow\n"             &
    "\n\n    Press Space to continue.\n"; 
 
 constant HELP_1 : string :=

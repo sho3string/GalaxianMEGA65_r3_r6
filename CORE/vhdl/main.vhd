@@ -139,9 +139,9 @@ begin
     begin
         if rising_edge(clk_main_i) then
             if reset = '0' then -- sample and read inputs/dips once during active low reset state
-                -- (6) test mode, (5) cabinet
+                -- (6)Test mode,(5) cabinet(upright/cocktail)
                 sw0 <= m_test & dsw_c_i(6) & dsw_c_i(5) & m_fire & m_right & m_left & '0' & m_coin;
-                -- (3),(4) Coinage, (7) Unused
+                -- (3)Coinage A,(4) Coinage B, (7) Unused
                 sw1 <= dsw_c_i(3) & dsw_c_i(4) & dsw_c_i(7) & m_fire_2 & m_right_2 & m_left_2 & m_start2 & m_start1;
             end if;
         end if;
@@ -234,8 +234,7 @@ begin
          r              => video_red_o,
          g              => video_green_o,
          b              => video_blue_o,
-         pause_cpu      => pause_cpu,
-         dim_video      => dim_video_o  
+         pause_cpu      => pause_cpu
       );
     
       
