@@ -324,7 +324,7 @@ constant OPTM_S_SAVING     : string := "<Saving>";          -- the internal writ
 --             Do use a lower case \n. If you forget one of them or if you use upper case, you will run into undefined behavior.
 --          2. Start each line that contains an actual menu item (multi- or single-select) with a Space character,
 --             otherwise you will experience visual glitches.
-constant OPTM_SIZE         : natural := 49;  -- amount of items including empty lines:
+constant OPTM_SIZE         : natural := 47;  -- amount of items including empty lines:
                                              -- needs to be equal to the number of lines in OPTM_ITEMS and amount of items in OPTM_GROUPS
                                              -- IMPORTANT: If SAVE_SETTINGS is true and OPTM_SIZE changes: Make sure to re-generate and
                                              -- and re-distribute the config file. You can make a new one using M2M/tools/make_config.sh
@@ -332,13 +332,13 @@ constant OPTM_SIZE         : natural := 49;  -- amount of items including empty 
 -- Net size of the Options menu on the screen in characters (excluding the frame, which is hardcoded to two characters)
 -- Without submenus: Use OPTM_SIZE as height, otherwise count how large the actually visible main menu is.
 constant OPTM_DX           : natural := 23;
-constant OPTM_DY           : natural := 24;
+constant OPTM_DY           : natural := 18;
 
 constant OPTM_ITEMS        : string :=
    " Galaxian\n"            &
    "\n"                     &
-   " Pause when OSD open\n" &
-   " Dim Video after 10s\n" &
+   --" Pause when OSD open\n" &
+   --" Dim Video after 10s\n" &
    " Flip joystick ports\n" &
    "\n"                     &
    " Display Settings\n"    &
@@ -390,24 +390,24 @@ constant OPTM_ITEMS        : string :=
 -- and be aware that you can only have a maximum of 254 groups (255 means "Close Menu");
 -- also make sure that your group numbers are monotonic increasing (e.g. 1, 2, 3, 4, ...)
 -- single-select items and therefore also drive mount items need to have unique identifiers
-constant OPTM_G_OSDO              : integer := 1;
-constant OPTM_G_DIMV              : integer := 2;
-constant OPTM_G_HDMI              : integer := 3;
-constant OPTM_G_ROT90             : integer := 4;
-constant OPTM_G_FLIP              : integer := 5;
-constant OPTM_G_CRT               : integer := 6;
-constant OPTM_G_FLIPJ             : integer := 7;
-constant OPTM_G_SOFTW             : integer := 8;
-constant OPTM_G_NAMCO_DSWA0       : integer := 9;
-constant OPTM_G_NAMCO_DSWA1       : integer := 10;
-constant OPTM_G_NAMCO_DSWA2       : integer := 11;
-constant OPTM_G_NAMCO_DSWA3       : integer := 12;
-constant OPTM_G_NAMCO_DSWA4       : integer := 13;
-constant OPTM_G_NAMCO_DSWA5       : integer := 14;
-constant OPTM_G_NAMCO_DSWA6       : integer := 15;
-constant OPTM_G_NAMCO_DSWA7       : integer := 16;
-constant OPTM_G_VGA_MODES         : integer := 17;
-constant OPTM_G_Audio             : integer := 18;
+--constant OPTM_G_OSDO              : integer := 1;
+--constant OPTM_G_DIMV              : integer := 2;
+constant OPTM_G_HDMI              : integer := 1;
+constant OPTM_G_ROT90             : integer := 2;
+constant OPTM_G_FLIP              : integer := 3;
+constant OPTM_G_CRT               : integer := 4;
+constant OPTM_G_FLIPJ             : integer := 5;
+constant OPTM_G_SOFTW             : integer := 6;
+constant OPTM_G_NAMCO_DSWA0       : integer := 7;
+constant OPTM_G_NAMCO_DSWA1       : integer := 8;
+constant OPTM_G_NAMCO_DSWA2       : integer := 9;
+constant OPTM_G_NAMCO_DSWA3       : integer := 10;
+constant OPTM_G_NAMCO_DSWA4       : integer := 11;
+constant OPTM_G_NAMCO_DSWA5       : integer := 12;
+constant OPTM_G_NAMCO_DSWA6       : integer := 13;
+constant OPTM_G_NAMCO_DSWA7       : integer := 14;
+constant OPTM_G_VGA_MODES         : integer := 15;
+constant OPTM_G_Audio             : integer := 16;
 
 
 -- !!! DO NOT TOUCH !!!
@@ -418,9 +418,9 @@ type OPTM_GTYPE is array (0 to OPTM_SIZE - 1) of integer range 0 to 2**OPTM_GTC-
 -- make sure that you have exactly the same amount of entries here than in OPTM_ITEMS and defined by OPTM_SIZE
 constant OPTM_GROUPS       : OPTM_GTYPE := (    OPTM_G_TEXT + OPTM_G_HEADLINE,                             -- Headline "Demo Headline A"
                                                 OPTM_G_LINE,                                               -- Line
-                                                OPTM_G_OSDO + OPTM_G_SINGLESEL + OPTM_G_START + OPTM_G_STDSEL,   -- Pause when OSD is open
-                                                OPTM_G_DIMV + OPTM_G_SINGLESEL,                            -- Dim video after 10s
-                                                OPTM_G_FLIPJ + OPTM_G_SINGLESEL,                           -- Flip joys On/Off toggle ("Single Select")
+                                                --OPTM_G_OSDO + OPTM_G_SINGLESEL + OPTM_G_START + OPTM_G_STDSEL,   -- Pause when OSD is open
+                                                --OPTM_G_DIMV + OPTM_G_SINGLESEL,                            -- Dim video after 10s
+                                                OPTM_G_FLIPJ + OPTM_G_SINGLESEL + OPTM_G_START,            -- Flip joys On/Off toggle ("Single Select")
                                                 OPTM_G_LINE,                                               -- Line
                                                 OPTM_G_TEXT + OPTM_G_HEADLINE,                             -- Headline "HDMI Mode""
                                                 OPTM_G_LINE,                                               -- Line
@@ -447,18 +447,18 @@ constant OPTM_GROUPS       : OPTM_GTYPE := (    OPTM_G_TEXT + OPTM_G_HEADLINE,  
                                                 OPTM_G_VGA_MODES,
                                                 OPTM_G_LINE,
                                                 OPTM_G_CLOSE         + OPTM_G_SUBMENU,
-                                                OPTM_G_LINE,                                               -- Line
-                                                OPTM_G_SUBMENU,                                            -- Dipswitch B Submenu start
-                                                OPTM_G_TEXT + OPTM_G_HEADLINE,                             -- Dipswitch B Title
-                                                OPTM_G_LINE,                                               -- Line
-                                                OPTM_G_NAMCO_DSWA0  + OPTM_G_SINGLESEL,                    -- Coinage A \
-                                                OPTM_G_NAMCO_DSWA1  + OPTM_G_SINGLESEL,                    -- Coinage B  |
-                                                OPTM_G_NAMCO_DSWA2  + OPTM_G_SINGLESEL,                    -- Coinage C / 
-                                                OPTM_G_NAMCO_DSWA3  + OPTM_G_SINGLESEL,                    -- Bonus Life A \
-                                                OPTM_G_NAMCO_DSWA4  + OPTM_G_SINGLESEL,                    -- Bonus Life B  |
-                                                OPTM_G_NAMCO_DSWA5  + OPTM_G_SINGLESEL,                    -- Bonus Life C /
-                                                OPTM_G_NAMCO_DSWA6  + OPTM_G_SINGLESEL,                    -- Lives A \
-                                                OPTM_G_NAMCO_DSWA7  + OPTM_G_SINGLESEL,                    -- Lives B /
+                                                OPTM_G_LINE,
+                                                OPTM_G_SUBMENU,
+                                                OPTM_G_TEXT + OPTM_G_HEADLINE,
+                                                OPTM_G_LINE,
+                                                OPTM_G_NAMCO_DSWA0  + OPTM_G_SINGLESEL,
+                                                OPTM_G_NAMCO_DSWA1  + OPTM_G_SINGLESEL,
+                                                OPTM_G_NAMCO_DSWA2  + OPTM_G_SINGLESEL,
+                                                OPTM_G_NAMCO_DSWA3  + OPTM_G_SINGLESEL,
+                                                OPTM_G_NAMCO_DSWA4  + OPTM_G_SINGLESEL,
+                                                OPTM_G_NAMCO_DSWA5  + OPTM_G_SINGLESEL,
+                                                OPTM_G_NAMCO_DSWA6  + OPTM_G_SINGLESEL,
+                                                OPTM_G_NAMCO_DSWA7  + OPTM_G_SINGLESEL,
                                                 OPTM_G_LINE,                                               -- Line
                                                 OPTM_G_CLOSE + OPTM_G_SUBMENU,                             -- Close submenu / back to main menu
                                                 OPTM_G_LINE,                                               -- Line

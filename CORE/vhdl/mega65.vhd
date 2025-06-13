@@ -251,26 +251,27 @@ signal main_qnice_dev_id_i : std_logic_vector(15 downto 0);
 ---------------------------------------------------------------------------------------------
 
 -- Democore menu items
-constant C_FLIP_JOYS           : natural := 4;
-constant C_MENU_ROT90          : natural := 8;
-constant C_MENU_FLIP           : natural := 9;
-constant C_MENU_CRT_EMULATION  : natural := 10;
-constant C_MENU_HDMI_16_9_50   : natural := 13;
-constant C_MENU_HDMI_16_9_60   : natural := 14;
-constant C_MENU_HDMI_4_3_50    : natural := 15;
-constant C_MENU_HDMI_5_4_50    : natural := 16;
-constant C_MENU_VGA_STD        : natural := 23;
-constant C_MENU_VGA_15KHZHSVS  : natural := 27;
-constant C_MENU_VGA_15KHZCS    : natural := 28;
-constant C_MENU_NAMCO_DSWA_0   : natural := 35;
-constant C_MENU_NAMCO_DSWA_1   : natural := 36;
-constant C_MENU_NAMCO_DSWA_2   : natural := 37;
-constant C_MENU_NAMCO_DSWA_3   : natural := 38;
-constant C_MENU_NAMCO_DSWA_4   : natural := 39;
-constant C_MENU_NAMCO_DSWA_5   : natural := 40;
-constant C_MENU_NAMCO_DSWA_6   : natural := 41;
-constant C_MENU_NAMCO_DSWA_7   : natural := 42;
-constant C_MENU_IMPROVE_AUDIO  : natural := 46;
+--constant C_MENU_OSMPAUSE       : natural := 2;  
+constant C_FLIP_JOYS           : natural := 2;
+constant C_MENU_ROT90          : natural := 6;
+constant C_MENU_FLIP           : natural := 7;
+constant C_MENU_CRT_EMULATION  : natural := 8;
+constant C_MENU_HDMI_16_9_50   : natural := 12;
+constant C_MENU_HDMI_16_9_60   : natural := 13;
+constant C_MENU_HDMI_4_3_50    : natural := 14;
+constant C_MENU_HDMI_5_4_50    : natural := 15;
+constant C_MENU_VGA_STD        : natural := 21;
+constant C_MENU_VGA_15KHZHSVS  : natural := 25;
+constant C_MENU_VGA_15KHZCS    : natural := 26;
+constant C_MENU_NAMCO_DSWA_0   : natural := 33;
+constant C_MENU_NAMCO_DSWA_1   : natural := 34;
+constant C_MENU_NAMCO_DSWA_2   : natural := 35;
+constant C_MENU_NAMCO_DSWA_3   : natural := 36;
+constant C_MENU_NAMCO_DSWA_4   : natural := 37;
+constant C_MENU_NAMCO_DSWA_5   : natural := 38;
+constant C_MENU_NAMCO_DSWA_6   : natural := 39;
+constant C_MENU_NAMCO_DSWA_7   : natural := 40;
+constant C_MENU_IMPROVE_AUDIO  : natural := 41;
 
 
 signal dsw_c_i      : std_logic_vector(7 downto 0);
@@ -439,6 +440,7 @@ begin
          reset_soft_i         => main_reset_core_i,
          reset_hard_i         => main_reset_m2m_i,
          pause_i              => main_pause_core_i,
+         dim_video_o          => dim_video,
          clk_main_speed_i     => CORE_CLK_SPEED,
 
          -- Video output

@@ -23,6 +23,7 @@ entity main is
       reset_soft_i            : in  std_logic;
       reset_hard_i            : in  std_logic;
       pause_i                 : in  std_logic;
+      dim_video_o             : out std_logic;
 
 
       -- MiSTer core main clock speed:
@@ -92,9 +93,9 @@ constant m65_up_crsr     : integer := 73; --Player fire
 constant m65_p           : integer := 41; --Pause button
 
 -- change these values based on menu
-constant C_MENU_OSMPAUSE : natural := 2;
-constant C_MENU_OSMDIM   : natural := 3;
-constant C_MENU_FLIP     : natural := 9;
+--constant C_MENU_OSMPAUSE : natural := 2;
+--constant C_MENU_OSMDIM   : natural := 3;
+constant C_MENU_FLIP     : natural := 7;
 
 -- @TODO: Remove these demo core signals
 signal keyboard_n                : std_logic_vector(79 downto 0);
@@ -120,42 +121,34 @@ signal hd_configured    : std_logic;
 signal m_start1         : std_logic := not keyboard_n(m65_1);
 signal m_start2         : std_logic := not keyboard_n(m65_2);
 signal m_test           : std_logic := not keyboard_n(m65_s);
-signal m_fire           : std_logic := not joy_1_fire_n_i; --or not keyboard_n(m65_up_crsr);
-signal m_right          : std_logic := not joy_1_right_n_i; --or not keyboard_n(m65_d);
-signal m_left           : std_logic := not joy_1_left_n_i; --or not keyboard_n(m65_a);
+signal m_fire           : std_logic := not joy_1_fire_n_i or not keyboard_n(m65_up_crsr);
+signal m_right          : std_logic := not joy_1_right_n_i or not keyboard_n(m65_d);
+signal m_left           : std_logic := not joy_1_left_n_i or not keyboard_n(m65_a);
 signal m_coin           : std_logic := not keyboard_n(m65_5);
-signal m_fire_2         : std_logic := not joy_2_fire_n_i;-- or not keyboard_n(m65_up_crsr);
-signal m_right_2        : std_logic := not joy_2_right_n_i;-- or not keyboard_n(m65_d);
-signal m_left_2         : std_logic := not joy_2_left_n_i;-- or not keyboard_n(m65_a);
-signal m_coin_2         : std_logic := not keyboard_n(m65_6);
+signal m_fire_2         : std_logic := not joy_2_fire_n_i or not keyboard_n(m65_up_crsr);
+signal m_right_2        : std_logic := not joy_2_right_n_i or not keyboard_n(m65_d);
+signal m_left_2         : std_logic := not joy_2_left_n_i or not keyboard_n(m65_a);
 signal sw0              : std_logic_vector(7 downto 0);
 signal sw1              : std_logic_vector(7 downto 0);
-
-
---signal sw0              : std_logic_vector(7 downto 0);
---signal sw1              : std_logic_vector(7 downto 0);
-
-signal sw0_galaxian     : std_logic_vector(7 downto 0);-- := sw0 and ( m_test & '1' & '1' & m_fire & m_right & m_left & ('0' and m_coin) & '1' and m_coin);
-signal sw1_galaxian     : std_logic_vector(7 downto 0);-- := sw1 and ( "111" & m_fire_2 & m_right_2 & m_left_2 & m_start2 & m_start1);
+signal sw0_galaxian     : std_logic_vector(7 downto 0);
+signal sw1_galaxian     : std_logic_vector(7 downto 0);
 
 begin
 
-   --sw0 <= m_test & "11" & m_fire & m_right & m_left & '0' and m_coin;
-   --sw1 <= "111" & m_fire_2 & m_right_2 & m_left_2 & m_start2 & m_start1;
    process (clk_main_i)
     begin
         if rising_edge(clk_main_i) then
-            if reset = '0' then -- sample and read inputs/dips during active low reset state
-                sw0 <= m_test & dsw_c_i(6) & dsw_c_i(5) & m_fire & m_right & m_left & ('0' and m_coin) & ('1' and m_coin);
+            if reset = '0' then -- sample and read inputs/dips once during active low reset state
                 -- (6) test mode, (5) cabinet
-                sw1 <= dsw_c_i(3) & dsw_c_i(4) & dsw_c_i(7) & m_fire_2 & m_right_2 & m_left_2 & m_start2 & m_start1;
+                sw0 <= m_test & dsw_c_i(6) & dsw_c_i(5) & m_fire & m_right & m_left & '0' & m_coin;
                 -- (3),(4) Coinage, (7) Unused
+                sw1 <= dsw_c_i(3) & dsw_c_i(4) & dsw_c_i(7) & m_fire_2 & m_right_2 & m_left_2 & m_start2 & m_start1;
             end if;
         end if;
     end process;
    
     -- Bitmask logic (assuming mod_pisces = '0')
-    sw0_galaxian <= sw0 and (m_test & dsw_c_i(6) & dsw_c_i(5) & m_fire & m_right & m_left & ('0' and m_coin) & ('1' and m_coin));
+    sw0_galaxian <= sw0 and (m_test & dsw_c_i(6) & dsw_c_i(5) & m_fire & m_right & m_left & '0' & m_coin);
     sw1_galaxian <= sw1 and (dsw_c_i(3) & dsw_c_i(4) & dsw_c_i(7) & m_fire_2 & m_right_2 & m_left_2 & m_start2 & m_start1);
      
    -- Mix unsigned audio
@@ -171,8 +164,8 @@ begin
    audio_left_o  <= audio_signed;
    audio_right_o <= audio_signed;
     
-   options(0) <= osm_control_i(C_MENU_OSMPAUSE);
-   options(1) <= osm_control_i(C_MENU_OSMDIM);
+   --options(0) <= osm_control_i(C_MENU_OSMPAUSE);
+   --options(1) <= osm_control_i(C_MENU_OSMDIM);
    flip_screen <= osm_control_i(C_MENU_FLIP);
 
    process (clk_main_i) -- 12mhz / 2
@@ -192,20 +185,20 @@ begin
         w_dip_di       => "00000" & dsw_c_i(2) & dsw_c_i(1) & dsw_c_i(0),
         w_r            => video_red_o,
         w_g            => video_green_o,
-	    w_b            => video_blue_o,
-	    w_h_sync       => video_hs_o,
-	    w_v_sync       => video_vs_o,
-	    hblank         => video_hblank_o,
-	    vblank         => video_vblank_o,
-	    dn_clk         => dn_clk_i,  -- on falling edge
-	    dn_addr        => dn_addr_i(15 downto 0),
-	    dn_data        => dn_data_i,
-	    dn_wr          => dn_wr_i,
-	    hs_address     => hs_address,
+        w_b            => video_blue_o,
+        w_h_sync       => video_hs_o,
+        w_v_sync       => video_vs_o,
+        hblank         => video_hblank_o,
+        vblank         => video_vblank_o,
+        dn_clk         => dn_clk_i,  -- on falling edge
+        dn_addr        => dn_addr_i(15 downto 0),
+        dn_data        => dn_data_i,
+        dn_wr          => dn_wr_i,
+        hs_address     => hs_address,
         hs_data_out    => hs_data_out,
         hs_data_in     => hs_data_in,
         hs_write       => hs_write_enable,
-        pause_cpu_n    => not pause_cpu,
+        pause_cpu_n    => not pause_cpu or not pause_i,
         mod_mooncr     => '0',
         mod_devilfsh   => '0',
         mod_pisces     => '0',
@@ -216,9 +209,10 @@ begin
         mod_uniwars    => '0',
         flip_vertical  => flip_screen,
         w_sdat_a       => audio_a,
-	    w_sdat_b       => audio_b,
-	    w_sdat_c       => audio_c
+        w_sdat_b       => audio_b,
+        w_sdat_c       => audio_c
    );
+   
    
    i_pause : entity work.pause
      generic map (
@@ -235,14 +229,15 @@ begin
          reset          => reset,
          user_button    => keyboard_n(m65_p),
          pause_request  => hs_pause,
-         options        => options,  -- not status(11 downto 10), - TODO, hookup to OSD.
-         OSD_STATUS     => '0',      -- disabled for now - TODO, to OSD
+         options        => options,
+         OSD_STATUS     => '0',
          r              => video_red_o,
          g              => video_green_o,
          b              => video_blue_o,
-         pause_cpu      => pause_cpu       
+         pause_cpu      => pause_cpu,
+         dim_video      => dim_video_o  
       );
-      
+    
       
    i_keyboard : entity work.keyboard
       port map (
@@ -251,12 +246,6 @@ begin
          -- Interface to the MEGA65 keyboard
          key_num_i            => kb_key_num_i,
          key_pressed_n_i      => kb_key_pressed_n_i,
-
-         -- @TODO: Create the kind of keyboard output that your core needs
-         -- "example_n_o" is a low active register and used by the demo core:
-         --    bit 0: Space
-         --    bit 1: Return
-         --    bit 2: Run/Stop
          example_n_o          => keyboard_n
       ); -- i_keyboard
 
