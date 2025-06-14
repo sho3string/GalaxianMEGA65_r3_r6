@@ -49,7 +49,7 @@ gfx2_files=("$WorkingDirectory/1k.bin" "$WorkingDirectory/1k.bin")
 cat "${gfx2_files[@]}" > "$WorkingDirectory/arcade/galaxian/k_roms"
 
 echo "Generating blank config file"
-output_file="$WorkingDirectory/arcade/galaxian/galxcfg"
+output_file="$WorkingDirectory/arcade/galaxian/galcfg"
 dd if=/dev/zero bs=1 count=$length | tr '\000' '\377' > "$output_file"
 
 echo "All done!"
