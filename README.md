@@ -22,7 +22,7 @@ Run the script: a) First extract all the files within the zip to any working fol
 b) Copy the powershell or shell script to the same folder and execute it to create the following files.
 
 **Ensure the following files are present and sizes are correct**  
-
+![image](https://github.com/user-attachments/assets/84f876f6-5737-4ab7-9cc9-601070eb7828)
 
 For Windows run the script via PowerShell - galaxian_rom_installer.ps1  
 Simply select the script and with the right mouse button select the Run with Powershell.
