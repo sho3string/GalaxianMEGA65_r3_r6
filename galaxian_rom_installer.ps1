@@ -79,7 +79,7 @@ $length = 47
 	$bytes[$i] = 0xFF
 	}
 	
-	$output_file = Join-Path -Path $WorkingDirectory -ChildPath "arcade\galaxian\galxcfg"
+	$output_file = Join-Path -Path $WorkingDirectory -ChildPath "arcade\galaxian\galcfg"
 	$output_directory = [System.IO.Path]::GetDirectoryName($output_file)
 	[System.IO.File]::WriteAllBytes($output_file,$bytes)
 
